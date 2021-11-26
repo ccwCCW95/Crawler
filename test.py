@@ -2,7 +2,7 @@
 Author: Changwei Cao
 Date: 2021-11-24 18:40:17
 LastEditors: Changwei Cao
-LastEditTime: 2021-11-26 14:46:48
+LastEditTime: 2021-11-26 15:44:20
 Description: Test for Python Clawler
 '''
 
@@ -10,15 +10,19 @@ from bs4 import BeautifulSoup
 import urllib.request
 import re
 import xlwt
+import sqlite3
 
 def main():
     baseurl = "https://movie.douban.com/top250?start="
     # 1. craw the website
     datalist = getData(baseurl=baseurl)
     savepath = "./MovieTop250.xls"
+    dbpath = "Movie.db"
 
     # 3. record the data
     saveData(datalist=datalist, savepath=savepath)
+
+    saveData2DB(datalist,dbpath)
 
 findlink = re.compile(r'<a href="(.*?)">')
 findImgSrc = re.compile(r'<img.*src="(.*?)"', re.S)
@@ -129,12 +133,76 @@ def saveData(datalist, savepath):
         sheet.write(0,i,col[i])
 
     for i in range(0,250):
-        print("Num %d"%i)
+        # print("Num %d"%i)
         data = datalist[i]
         for j in range(0,8):
             sheet.write(i+1,j,data[j])
 
     book.save(savepath)
+
+'''
+description: Save the data to the database
+param {*} datalist
+param {*} dbpath
+return {*}
+author: Changwei Cao
+'''
+def saveData2DB(datalist, dbpath):
+    init_db(dbpath=dbpath)
+
+    conn = sqlite3.connect(dbpath)
+    cur = conn.cursor()
+
+    for data in datalist:
+        for index in range(len(data)):
+            if index == 4 or index == 5:
+                continue
+            data[index] = '"' + data[index] + '"'
+
+        sql = '''
+            
+                insert into movie250 (
+                    info_link,pic_link,cname,ename,score,rated,introduction,info)
+
+                values(%s)
+            
+        '''%",".join(data)
+
+        cur.execute(sql)
+        conn.commit()
+    
+    cur.close()
+    conn.close()
+
+'''
+description: Initialize the database
+param {*} dbpath
+return {*}
+author: Changwei Cao
+'''
+def init_db(dbpath):
+    sql = '''
+    
+       create table movie250 
+       (
+           id integer primary key autoincrement,
+           info_link text,
+           pic_link text,
+           cname varchar,
+           ename varchar,
+           score numeric,
+           rated numeric,
+           introduction text,
+           info text
+       ) 
+    
+    '''
+
+    conn = sqlite3.connect(dbpath)
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    conn.commit()
+    conn.close()
 
 
 
